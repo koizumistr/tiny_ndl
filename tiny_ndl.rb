@@ -21,6 +21,8 @@ class TinyNdl
       return -2
     end
 
+    @creator = nil
+    @publisher = nil
     @ext = nil
     @vol = nil
 
@@ -34,6 +36,7 @@ class TinyNdl
       @xml = REXML::Document.new(response.body)
 #      puts @xml
       num = @xml.root.get_elements('/searchRetrieveResponse/numberOfRecords').first.text
+
       make_summary
 
       return num.to_i
@@ -77,7 +80,10 @@ class TinyNdl
         text = text + e.get_elements('dcndl:volume').first.text
       end
       text = text + " / "
-      text = text + e.get_elements('dc:creator').first.text + " / "
+      if e.get_elements('dc:creator').first != nil then
+        text = text + e.get_elements('dc:creator').first.text
+      end
+      text = text + " / "
       if e.get_elements('dc:publisher').first != nil then 
         text = text + e.get_elements('dc:publisher').first.text
       end
