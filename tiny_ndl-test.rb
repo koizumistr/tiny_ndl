@@ -18,7 +18,7 @@ until f.eof
     puts "not found"
     next
   elsif num == 1
-    # nop
+    c.select(1)
   else # > 1
     for i in 0..(num - 1) do
       print '[' + (i + 1).to_s + "]-------------\n"
