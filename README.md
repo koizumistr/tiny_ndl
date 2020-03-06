@@ -1,4 +1,4 @@
-#tiny_ndl
+# tiny_ndl
 
 国立国会図書館(NDL)がAPIを公開していて、書籍の検索ができるというのは皆さんご存知と思います。NDL APIに対してISBNで問い合わせるRubyスクリプトです。(NDL APIはもっと多機能ですが、ISBNでしか問い合わせないので、tiny、と。)
 
