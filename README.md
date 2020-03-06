@@ -9,4 +9,4 @@ tiny_ndl-test.rbを見てください。
 
 ## バグ等
 
-[Qiita](https://qiita.com/)に[Rubyで国立国会図書館APIに問い合わせ](https://qiita.com/hiranoi/items/8f5bbffaacc61ced5407)なんて記事があったり、[GitHub](https://github.com/)[ndlという名のgem](https://github.com/himkt/ndl)があったりしますので、車輪の再発明です。いや、そんなことを言ったら車輪に失礼ですね。車輪未満です。
+[Qiita](https://qiita.com/)に[Rubyで国立国会図書館APIに問い合わせ](https://qiita.com/hiranoi/items/8f5bbffaacc61ced5407)なんて記事があったり、[GitHub](https://github.com/)には[ndlという名のgem](https://github.com/himkt/ndl)があったりしますので、車輪の再発明です。いや、そんなことを言ったら車輪に失礼ですね。ごめんなさい、車輪未満です。
