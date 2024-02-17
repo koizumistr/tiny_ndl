@@ -2,40 +2,45 @@ require 'net/http'
 require 'rexml/document'
 
 class TinyNdl
+  BIB_RES = 'rdf:RDF/dcndl:BibResource/'
+
   def initialize(proxy_addr = nil, proxy_port = nil)
     @proxy_addr = proxy_addr
     @proxy_port = proxy_port
   end
 
-  attr_reader :title, :title_yomi, :creator, :publisher, :price, :ext, :vol
-  attr_reader :summary_array, :id_array
+  attr_reader :title, :title_yomi, :creator, :publisher, :price, :ext, :vol, :summary_array
 
   def search(isbn)
-    @elem_array = Array.new
-    @summary_array = Array.new
-    @id_array = Array.new
+    @rd_array = []
+    @summary_array = []
 
-#    p isbn
-#    p isbn.length
-    if isbn.length != 13 and isbn.length != 10 then
-      return -2
-    end
+    #    p isbn
+    #    p isbn.length
+    return -2 if (isbn.length != 13) && (isbn.length != 10)
 
+    @title = nil
+    @title_yomi = nil
     @creator = nil
     @publisher = nil
+    @price = nil
     @ext = nil
     @vol = nil
 
-    Net::HTTP::Proxy(@proxy_addr, @proxy_port).start('iss.ndl.go.jp', 443, :use_ssl => true) do | session |
-      response = session.get("/api/sru?operation=searchRetrieve&recordSchema=dcndl_simple&query=mediatype%3d1%20AND%20isbn%3d#{isbn}")
+    Net::HTTP::Proxy(@proxy_addr, @proxy_port).start('ndlsearch.ndl.go.jp', 443, use_ssl: true) do |session|
+      response = session.get("/api/sru?operation=searchRetrieve&recordSchema=dcndl&query=mediatype%3dbooklet%20AND%20isbn%3d#{isbn}")
       if response.code != '200'
-        STDERR.puts "#{response.code} - #{response.message}"
+        warn "#{response.code} - #{response.message}"
         return -1
       end
 
       @xml = REXML::Document.new(response.body)
 #      puts @xml
-      num = @xml.root.get_elements('/searchRetrieveResponse/numberOfRecords').first.text
+      num = if !@xml.root.get_elements('/searchRetrieveResponse/numberOfRecords').first.nil?
+              @xml.root.get_elements('/searchRetrieveResponse/numberOfRecords').first.text
+            else
+              0
+            end
 
       make_summary
 
@@ -44,57 +49,52 @@ class TinyNdl
   end
 
   def select(num)
-    selelem = @elem_array.at(num - 1)
-
+    rdf = REXML::Document.new(@rd_array.at(num - 1))
 #    p num.to_s
-#    p selelem
 
-    @title = selelem.get_elements('dc:title').first.text
-    if selelem.get_elements('dcndl:titleTranscription').first != nil then
-      @title_yomi = selelem.get_elements('dcndl:titleTranscription').first.text
+    @title = rdf.get_elements("#{BIB_RES}dcterms:title").first.text
+    unless rdf.get_elements("#{BIB_RES}dc:title/rdf:Description/dcndl:transcription").first.nil?
+      @title_yomi = rdf.get_elements("#{BIB_RES}dc:title/rdf:Description/dcndl:transcription").first.text
     end
-    if selelem.get_elements('dc:creator').first != nil then
-      @creator = selelem.get_elements('dc:creator').first.text
+    unless rdf.get_elements("#{BIB_RES}dc:creator").first.nil?
+      @creator = rdf.get_elements("#{BIB_RES}dc:creator").first.text
     end
-    @publisher = selelem.get_elements('dc:publisher').first.text
-    if selelem.get_elements('dcndl:price').first != nil then
-      @price = selelem.get_elements('dcndl:price').first.text
+    @publisher = rdf.get_elements("#{BIB_RES}dcterms:publisher/foaf:Agent/foaf:name").first.text
+    unless rdf.get_elements("#{BIB_RES}dcndl:price").first.nil?
+      @price = rdf.get_elements("#{BIB_RES}dcndl:price").first.text
     end
-    if selelem.get_elements('dc:extent').first != nil then
-    @ext = selelem.get_elements('dc:extent').first.text
+    unless rdf.get_elements("#{BIB_RES}dcterms:extent").first.nil?
+      @ext = rdf.get_elements("#{BIB_RES}dcterms:extent").first.text
     end
-    if selelem.get_elements('dcndl:volume').first != nil then
-      @vol = selelem.get_elements('dcndl:volume').first.text
-    end
+    return if rdf.get_elements("#{BIB_RES}dcndl:volume/rdf:Description/rdf:value").first.nil?
+
+    @vol = rdf.get_elements("#{BIB_RES}dcndl:volume/rdf:Description/rdf:value").first.text
   end
-
 
   private
 
   def make_summary
-    @xml.elements.each('/searchRetrieveResponse/records/record/recordData/dcndl_simple:dc') do |e|
-      @elem_array.push(e)
-      text = e.get_elements('dc:title').first.text
-      text = text + " / "
-      if e.get_elements('dcndl:volume').first != nil then 
-        text = text + e.get_elements('dcndl:volume').first.text
+    @xml.elements.each('searchRetrieveResponse/records/record/recordData') do |e|
+#      puts e.text
+      c = e.text
+      @rd_array.push(c)
+      rdf = REXML::Document.new(c)
+
+      text = rdf.get_elements("#{BIB_RES}dcterms:title").first.text
+#      puts text
+      text += ' / '
+      unless rdf.get_elements("#{BIB_RES}dcndl:volume/rdf:Description/rdf:value").first.nil?
+        text += rdf.get_elements("#{BIB_RES}dcndl:volume/rdf:Description/rdf:value").first.text
       end
-      text = text + " / "
-      if e.get_elements('dc:creator').first != nil then
-        text = text + e.get_elements('dc:creator').first.text
+      text += ' / '
+      unless rdf.get_elements("#{BIB_RES}dc:creator").first.nil?
+        text += rdf.get_elements("#{BIB_RES}dc:creator").first.text
       end
-      text = text + " / "
-      if e.get_elements('dc:publisher').first != nil then 
-        text = text + e.get_elements('dc:publisher').first.text
+      text += ' / '
+      unless rdf.get_elements("#{BIB_RES}dcterms:publisher/foaf:Agent/foaf:name").first.nil?
+        text += rdf.get_elements("#{BIB_RES}dcterms:publisher/foaf:Agent/foaf:name").first.text
       end
       @summary_array.push(text)
-      id_text = String.new
-      e.elements.each('dc:identifier') do |id|
-        if id.attribute('xsi:type').to_s != "dcterms:URI" 
-          id_text += id.attribute('xsi:type').to_s + "\t" + id.text + "\n"
-        end
-      end
-      @id_array.push(id_text)
     end
   end
 end
